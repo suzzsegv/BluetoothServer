@@ -36,23 +36,13 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 
-public class MainActivity extends AppCompatActivity implements AdapterView.OnItemClickListener {
+public class MainActivity extends AppCompatActivity {
 
     private BluetoothAdapter mBluetoothAdapter;
     final int REQUEST_ENABLE_BT = 1;
-    final int REQUEST_DISCOVERABLE_BT = 2;
     final int REQUEST_PERMISSION = 1000;
-    ListView listView;
-    TextView textView_DeviceName;
-    TextView textView_DeviceAddress;
     TextView textView_Status;
-    ArrayList<BluetoothDevice> mBluetoothDeviceList;
-    ArrayList<String> mDeviceNameList;
-    ArrayAdapter<String> mArrayAdapter;
-
     BTServerThread btServerThread;
-    BluetoothDevice mServerBluetoothDevice;
-
     Handler mUiHandler;
 
     @Override
@@ -78,53 +68,9 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         if (!mBluetoothAdapter.isEnabled()) {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        } else {
-//            if (mBluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
-//                Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-//                discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 60);
-//                startActivityForResult(discoverableIntent, REQUEST_DISCOVERABLE_BT);
-//            }
         }
-
-        textView_DeviceName = findViewById(R.id.textView_DeviceName);
-        textView_DeviceName.setText("Nothing");
-
-        textView_DeviceAddress = findViewById(R.id.textView_DeviceAddress);
-        textView_DeviceAddress.setText("00:00:00:00:00:00");
-
-        mBluetoothDeviceList = new ArrayList<>();
-
-        listView = (ListView) findViewById(R.id.ListView1);
-        mDeviceNameList = new ArrayList<>();
-        mArrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, mDeviceNameList);
-        listView.setAdapter(mArrayAdapter);
-        listView.setOnItemClickListener(this);
-
-        // Get a set of currently paired devices
-        Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
-
-        // If there are paired devices, add each one to the ArrayAdapter
-        if (pairedDevices.size() > 0) {
-            for (BluetoothDevice bluetoothDevice : pairedDevices) {
-                String nameAndAddress = bluetoothDevice.getName() + "\n" + bluetoothDevice.getAddress();
-                mArrayAdapter.add(nameAndAddress);
-                mBluetoothDeviceList.add(bluetoothDevice);
-            }
-        }
-
-        Button b = (Button) findViewById(R.id.Button_Listen);
-        b.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if(mServerBluetoothDevice != null) {
-                    btServerThread = new BTServerThread();
-                    btServerThread.start();
-                }
-            }
-        });
 
         mUiHandler = new Handler(Looper.getMainLooper());
-
     }
 
     // 位置情報許可の確認
@@ -179,19 +125,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     // finish();
                     return;
                 }
-//                if (mBluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
-//                    Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-//                    discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 60);
-//                    startActivityForResult(discoverableIntent, REQUEST_DISCOVERABLE_BT);
-//                }
                 break;
-            case REQUEST_DISCOVERABLE_BT:
-                if (resultCode == Activity.RESULT_CANCELED) {
-                    Toast.makeText(this, "他の Bluetooth デバイスに、この携帯電話は表示されません。", Toast.LENGTH_LONG).show();
-                    // finish();
-                    return;
-                }
-                Toast.makeText(this, "他の Bluetooth デバイスに表示可能です", Toast.LENGTH_LONG).show();
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -221,16 +155,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             btServerThread.cancel();
             btServerThread = null;
         }
-    }
-
-    @Override
-    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-        //String msg = position + "番目のアイテムがクリックされました";
-        //Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
-        BluetoothDevice btDev = mBluetoothDeviceList.get(position);
-        textView_DeviceName.setText(btDev.getName());
-        textView_DeviceAddress.setText(btDev.getAddress());
-        mServerBluetoothDevice = btDev;
     }
 
     public class BTServerThread extends Thread {
