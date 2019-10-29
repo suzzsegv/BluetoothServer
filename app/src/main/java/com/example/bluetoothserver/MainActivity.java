@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
         textView_Status = findViewById(R.id.textView_Status);
         textView_Status.setText("Status:");
 
-        checkPermission();
+        //checkPermission();
 
         BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -221,6 +221,7 @@ public class MainActivity extends AppCompatActivity {
                             bluetoothSocket = null;
                         } catch (IOException e) {
                         }
+                        setStatusTextView("Status: クライアントが切断されました。");
                     }
 
                     // Bluetooth connection broke. Start Over in a few seconds.
