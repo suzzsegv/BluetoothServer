@@ -53,8 +53,6 @@ public class MainActivity extends AppCompatActivity {
         textView_Status = findViewById(R.id.textView_Status);
         textView_Status.setText("Status:");
 
-        //checkPermission();
-
         BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
@@ -71,49 +69,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         mUiHandler = new Handler(Looper.getMainLooper());
-    }
-
-    // 位置情報許可の確認
-    public void checkPermission() {
-        // 既に許可している
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "ACCESS_FINE_LOCATION は許可されています。", Toast.LENGTH_LONG).show();
-        }
-        // 許可されていない場合
-        else {
-            requestLocationPermission();
-        }
-    }
-
-    // 許可を求める
-    private void requestLocationPermission() {
-        // 許可が必要な説明を表示するかどうか判定
-        if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                Manifest.permission.ACCESS_FINE_LOCATION)) {
-            Toast.makeText(this, "ACCESS_FINE_LOCATION: 追加説明", Toast.LENGTH_LONG).show();
-        } else {
-            Toast.makeText(this, "ACCESS_FINE_LOCATION: 今後は確認しないが選ばれている。", Toast.LENGTH_LONG).show();
-        }
-        ActivityCompat.requestPermissions(MainActivity.this,
-                new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                REQUEST_PERMISSION);
-    }
-
-    // 結果の受け取り
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        if (requestCode == REQUEST_PERMISSION) {
-            // 使用が許可された
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "ACCESS_FINE_LOCATION が許可されました。", Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(this, "ACCESS_FINE_LOCATION は拒否されました。", Toast.LENGTH_LONG).show();
-            }
-        }
     }
 
     @Override
