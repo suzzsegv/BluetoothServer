@@ -38,11 +38,9 @@ import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
-    private BluetoothAdapter mBluetoothAdapter;
-    final int REQUEST_ENABLE_BT = 1;
-    final int REQUEST_PERMISSION = 1000;
+    private BluetoothServer mBluetoothServer;
     TextView textView_Status;
-    BTServerThread btServerThread;
+    RemoteControlEventListener mRemoteControlListener;
     Handler mUiHandler;
 
     @Override
@@ -53,168 +51,53 @@ public class MainActivity extends AppCompatActivity {
         textView_Status = findViewById(R.id.textView_Status);
         textView_Status.setText("Status:");
 
-        BluetoothManager bluetoothManager =
-                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        mBluetoothAdapter = bluetoothManager.getAdapter();
-        if (mBluetoothAdapter == null) {
-            // Device does not support Bluetooth
-            Log.d(MainActivity.class.getName(), "Device does not support Bluetooth");
-            textView_Status.setText("Status: Device does not support Bluetooth.");
+        mBluetoothServer = new BluetoothServer(this);
+        int result = mBluetoothServer.initialize();
+        if (result == mBluetoothServer.BT_SERVER_ERROR) {
             return;
         }
 
-        if (!mBluetoothAdapter.isEnabled()) {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        }
-
+        mRemoteControlListener = new BtRemoteControllEventlistener();
         mUiHandler = new Handler(Looper.getMainLooper());
+        mBluetoothServer.setRemoteControlEventListener(mRemoteControlListener, mUiHandler);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        switch (requestCode) {
-            case REQUEST_ENABLE_BT:
-                if (resultCode == Activity.RESULT_CANCELED) {
-                    Toast.makeText(this, "Bluetooth を使用できません。", Toast.LENGTH_LONG).show();
-                    // finish();
-                    return;
-                }
-                break;
-        }
-        super.onActivityResult(requestCode, resultCode, data);
-    }
+//    @Override
+//    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+//        switch (requestCode) {
+//            case REQUEST_ENABLE_BT:
+//                if (resultCode == Activity.RESULT_CANCELED) {
+//                    Toast.makeText(this, "Bluetooth を使用できません。", Toast.LENGTH_LONG).show();
+//                    // finish();
+//                    return;
+//                }
+//                break;
+//        }
+//        super.onActivityResult(requestCode, resultCode, data);
+//    }
 
     @Override
     protected void onResume() {
         super.onResume();
 
-        if (mBluetoothAdapter == null) {
-            return;
-        }
-
-        if(btServerThread == null){
-            btServerThread = new BTServerThread();
-            btServerThread.start();
-        }else{
-//            btServerThread.cancel();
-//            btServerThread = null;
-        }
+        mBluetoothServer.start();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        if(btServerThread == null){
-            btServerThread.cancel();
-            btServerThread = null;
-        }
+        mBluetoothServer.stop();
     }
 
-    public class BTServerThread extends Thread {
-        static final String TAG = "BTTest1Server";
-        static final String BT_NAME = "BTTEST1";
-        UUID BT_UUID = UUID.fromString(
-                "41eb5f39-6c3a-4067-8bb9-bad64e6e0908");
-
-        BluetoothServerSocket bluetoothServerSocket;
-        BluetoothSocket bluetoothSocket;
-        InputStream inputStream;
-        OutputStream outputStream;
-
-        public void run() {
-
-            byte[] incomingBuff = new byte[64];
-
-            try {
-                while (true) {
-
-                    if (Thread.interrupted()) {
-                        break;
-                    }
-
-                    try {
-
-                        bluetoothServerSocket
-                                = mBluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(
-                                BT_NAME,
-                                BT_UUID);
-
-                        bluetoothSocket = bluetoothServerSocket.accept();
-                        setStatusTextView("Status: クライアントが接続しました。");
-
-                        bluetoothServerSocket.close();
-                        bluetoothServerSocket = null;
-
-                        inputStream = bluetoothSocket.getInputStream();
-                        outputStream = bluetoothSocket.getOutputStream();
-
-                        while (true) {
-
-                            if (Thread.interrupted()) {
-                                break;
-                            }
-
-                            int incomingBytes = inputStream.read(incomingBuff);
-                            byte[] buff = new byte[incomingBytes];
-                            System.arraycopy(incomingBuff, 0, buff, 0, incomingBytes);
-                            processBtCommand();
-                            //String cmd = new String(buff, StandardCharsets.UTF_8);
-
-                            //String resp = processCommand(cmd);
-                            //outputStream.write(resp.getBytes());
-                        }
-
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
-                    if (bluetoothSocket != null) {
-                        try {
-                            bluetoothSocket.close();
-                            bluetoothSocket = null;
-                        } catch (IOException e) {
-                        }
-                        setStatusTextView("Status: クライアントが切断されました。");
-                    }
-
-                    // Bluetooth connection broke. Start Over in a few seconds.
-                    Thread.sleep(3 * 1000);
-                }
-            } catch (InterruptedException e) {
-                Log.d(TAG, "Cancelled ServerThread");
-            }
-
-            Log.d(TAG, "ServerThread exit");
+    public class BtRemoteControllEventlistener implements RemoteControlEventListener {
+        @Override
+        public void onCommandTakePicture() {
+            textView_Status.setText("Status: TakePicture コマンドを受信しました。");
         }
-
-        public void cancel() {
-            if (bluetoothServerSocket != null) {
-                try {
-                    bluetoothServerSocket.close();
-                    bluetoothServerSocket = null;
-                    super.interrupt();
-                } catch (IOException e) {}
-            }
-        }
-
-        private void processBtCommand(){
-            mUiHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    textView_Status.setText("Status: コマンドを受信しました。");
-                }
-            });
-        }
-
-        private void setStatusTextView(final String str){
-            mUiHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    textView_Status.setText(str);
-                }
-            });
+        @Override
+        public void onConnect() {
+            textView_Status.setText("Status: TakePicture コマンドを受信しました。");
         }
     }
 }
