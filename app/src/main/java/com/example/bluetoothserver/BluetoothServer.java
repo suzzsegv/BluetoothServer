@@ -24,33 +24,10 @@ public class BluetoothServer {
     RemoteControlEventListener mRemoteControlEventListener;
     Handler mUiHandler;
 
+    final int REQUEST_ENABLE_BT = 1;
 
     BluetoothServer(AppCompatActivity activity) {
         mActivity = activity;
-    }
-
-    final int REQUEST_ENABLE_BT = 1;
-
-    public static final int BT_SERVER_OK = 0;
-    public static final int BT_SERVER_ERROR = -1;
-
-    int initialize() {
-        BluetoothManager bluetoothManager =
-                (BluetoothManager) mActivity.getSystemService(Context.BLUETOOTH_SERVICE);
-        mBluetoothAdapter = bluetoothManager.getAdapter();
-        if (mBluetoothAdapter == null) {
-            // Device does not support Bluetooth
-            Log.d(MainActivity.class.getName(), "Device does not support Bluetooth");
-            //textView_Status.setText("Status: Device does not support Bluetooth.");
-            return BT_SERVER_ERROR;
-        }
-
-        if (!mBluetoothAdapter.isEnabled()) {
-            return BT_SERVER_ERROR;
-//            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-//            mActivity.startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        }
-        return BT_SERVER_OK;
     }
 
     void setRemoteControlEventListener(RemoteControlEventListener listener, Handler uiHandler){
@@ -58,17 +35,25 @@ public class BluetoothServer {
         mUiHandler = uiHandler;
     }
 
-    int start() {
+    synchronized void start() throws IOException {
+        if (mBluetoothAdapter == null) {
+            BluetoothManager bluetoothManager =
+                    (BluetoothManager) mActivity.getSystemService(Context.BLUETOOTH_SERVICE);
+            mBluetoothAdapter = bluetoothManager.getAdapter();
+            if (mBluetoothAdapter == null) {
+                Log.d(MainActivity.class.getName(), "Device does not support Bluetooth");
+                throw new IOException("Device does not support Bluetooth.");
+            }
+        }
         btServerThread = new BTServerThread();
         btServerThread.start();
-        return BT_SERVER_OK;
     }
 
-    int stop() {
+    synchronized void stop() {
         if( btServerThread != null){
             btServerThread.cancel();
+            btServerThread = null;
         }
-        return BT_SERVER_OK;
     }
 
     public class BTServerThread extends Thread {
@@ -76,45 +61,38 @@ public class BluetoothServer {
         static final String BT_NAME = "BTTEST1";
         UUID BT_UUID = UUID.fromString(
                 "41eb5f39-6c3a-4067-8bb9-bad64e6e0908");
-
         BluetoothServerSocket bluetoothServerSocket;
         BluetoothSocket bluetoothSocket;
         InputStream inputStream;
         OutputStream outputStream;
 
-        public void run() {
+        BTServerThread(){
+            BluetoothServerSocket socket = null;
+            try {
+                socket = mBluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(
+                           BT_NAME, BT_UUID);
+            } catch (IOException e) {
+                Log.e(TAG, "listen() failed", e);
+            }
+            bluetoothServerSocket = socket;
+        }
 
+        public void run() {
             byte[] incomingBuff = new byte[64];
 
             try {
                 while (true) {
-
-                    if (Thread.interrupted()) {
+                    if(bluetoothServerSocket == null){
                         break;
                     }
-
                     try {
-
-                        bluetoothServerSocket
-                                = mBluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(
-                                BT_NAME,
-                                BT_UUID);
-
                         bluetoothSocket = bluetoothServerSocket.accept();
                         processConnect();
-
-                        bluetoothServerSocket.close();
-                        bluetoothServerSocket = null;
 
                         inputStream = bluetoothSocket.getInputStream();
                         outputStream = bluetoothSocket.getOutputStream();
 
                         while (true) {
-
-                            if (Thread.interrupted()) {
-                                break;
-                            }
-
                             int incomingBytes = inputStream.read(incomingBuff);
                             byte[] buff = new byte[incomingBytes];
                             System.arraycopy(incomingBuff, 0, buff, 0, incomingBytes);
@@ -124,9 +102,8 @@ public class BluetoothServer {
                             //String resp = processCommand(cmd);
                             //outputStream.write(resp.getBytes());
                         }
-
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        Log.e(TAG, "accept() failed", e);
                     }
 
                     if (bluetoothSocket != null) {
@@ -135,7 +112,11 @@ public class BluetoothServer {
                             bluetoothSocket = null;
                         } catch (IOException e) {
                         }
-                        setStatusTextView("Status: クライアントが切断されました。");
+                        Log.d(TAG, "Close socket.");
+                    }
+
+                    if (Thread.interrupted()) {
+                        break;
                     }
 
                     // Bluetooth connection broke. Start Over in a few seconds.
@@ -148,14 +129,13 @@ public class BluetoothServer {
             Log.d(TAG, "ServerThread exit");
         }
 
-        public void cancel() {
-            if (bluetoothServerSocket != null) {
-                try {
-                    bluetoothServerSocket.close();
-                    bluetoothServerSocket = null;
-                    super.interrupt();
-                } catch (IOException e) {}
+        void cancel() {
+            try {
+                bluetoothServerSocket.close();
+            } catch (IOException e) {
+                Log.e(TAG, "bluetoothServerSocket close() failed", e);
             }
+            interrupt();
         }
 
     }

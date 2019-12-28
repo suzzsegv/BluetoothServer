@@ -52,11 +52,6 @@ public class MainActivity extends AppCompatActivity {
         textView_Status.setText("Status:");
 
         mBluetoothServer = new BluetoothServer(this);
-        int result = mBluetoothServer.initialize();
-        if (result == mBluetoothServer.BT_SERVER_ERROR) {
-            return;
-        }
-
         mRemoteControlListener = new BtRemoteControllEventlistener();
         mUiHandler = new Handler(Looper.getMainLooper());
         mBluetoothServer.setRemoteControlEventListener(mRemoteControlListener, mUiHandler);
@@ -77,10 +72,17 @@ public class MainActivity extends AppCompatActivity {
 //    }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    protected void onStart() {
+        super.onStart();
+        try {
+            mBluetoothServer.start();
+        } catch (IOException e) {}
+    }
 
-        mBluetoothServer.start();
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mBluetoothServer.stop();
     }
 
     @Override
